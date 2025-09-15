@@ -36,6 +36,16 @@ local carsState = {}
 local wheelsWarningTimeout = 0
 
 function script.update(dt)
+    -- Drift scoring
+    local driftAngle = math.abs(player.yaw - player.steer)
+    local driftSpeed = player.speedKmh
+    if driftAngle > 0.25 and driftSpeed > requiredSpeed then
+        local driftScore = math.floor(driftAngle * driftSpeed * 0.1)
+        if driftScore > 0 then
+            totalScore = totalScore + driftScore
+            addMessage("Drift! +" .. driftScore .. " pts", 1)
+        end
+    end
     if timePassed == 0 then
         addMessage("Let’s go!", 0)
     end
@@ -76,7 +86,10 @@ function script.update(dt)
                 highestScore = math.floor(totalScore)
                 ac.sendChatMessage("scored " .. totalScore .. " points.")
             end
-            totalScore = 0
+            local penaltyPercent = 0.3 -- lose 30% of points on crash
+            local lostPoints = math.floor(totalScore * penaltyPercent)
+            totalScore = totalScore - lostPoints
+            addMessage("Crash! Lost " .. lostPoints .. " pts", -1)
             comboMeter = 1
         else
             if dangerouslySlowTimer == 0 then
@@ -102,12 +115,18 @@ function script.update(dt)
                 if not state.nearMiss and car.pos:closerToThan(player.pos, 3) then
                     state.nearMiss = true
 
-                    if car.pos:closerToThan(player.pos, 2.5) then
+                    if car.pos:closerToThan(player.pos, 1.5) then
+                        comboMeter = comboMeter + 5
+                        totalScore = totalScore + 15
+                        addMessage("ULTRA near miss! +15 pts", 1)
+                    elseif car.pos:closerToThan(player.pos, 2.5) then
                         comboMeter = comboMeter + 3
-                        addMessage("Very close near miss!", 1)
+                        totalScore = totalScore + 7
+                        addMessage("Very close near miss! +7 pts", 1)
                     else
                         comboMeter = comboMeter + 1
-                        addMessage("Near miss: bonus combo", 0)
+                        totalScore = totalScore + 3
+                        addMessage("Near miss: bonus combo +3 pts", 0)
                     end
                 end
             end
